@@ -16,7 +16,8 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:padding="16dp"
-        android:textSize="18sp"/>
+        android:textSize="18sp"
+        android:text="Linear Acceleration Data"/>
 
     <TextView
         android:id="@+id/rotationTextView"
@@ -26,14 +27,26 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:padding="16dp"
-        android:textSize="18sp"/>
+        android:textSize="18sp"
+        android:text="Rotation Vector Data"/>
+
+    <TextView
+        android:id="@+id/resultTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toBottomOf="@id/rotationTextView"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:padding="16dp"
+        android:textSize="18sp"
+        android:text="Prediction Result"/>
 
     <Button
         android:id="@+id/startButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Start Measuring"
-        app:layout_constraintTop_toBottomOf="@id/rotationTextView"
+        app:layout_constraintTop_toBottomOf="@id/resultTextView"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:padding="16dp"

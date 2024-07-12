@@ -1,5 +1,6 @@
 package com.example.prediction;
 
+import android.content.res.AssetFileDescriptor;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -18,6 +19,13 @@ import androidx.core.view.WindowInsetsCompat;
 import java.util.ArrayList;
 import java.util.Collections;
 
+import org.tensorflow.lite.Interpreter;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
     private SensorManager sensorManager;
@@ -25,6 +33,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private Sensor rotationVectorSensor;
     private TextView linearAccelTextView;
     private TextView rotationTextView;
+    private TextView resultTextView;
     private Button startButton;
     private boolean isMeasuring = false;
     private Handler handler = new Handler();
@@ -37,6 +46,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private ArrayList<Float> la_y_values = new ArrayList<>();
     private ArrayList<Float> la_z_values = new ArrayList<>();
     private ArrayList<Float> la_mag_values = new ArrayList<>();
+
+    private Interpreter tflite;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,6 +65,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         // Initialize TextViews
         linearAccelTextView = findViewById(R.id.linearAccelTextView);
         rotationTextView = findViewById(R.id.rotationTextView);
+        resultTextView = findViewById(R.id.resultTextView);
         startButton = findViewById(R.id.startButton);
 
         // Initialize SensorManager and Sensors
@@ -61,6 +73,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         if (sensorManager != null) {
             linearAccelerationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
             rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+        }
+
+        // Load TensorFlow Lite model
+        try {
+            tflite = new Interpreter(loadModelFile());
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
         // Set up start button click listener
@@ -90,7 +109,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         la_mag_values.clear();
 
         // Stop measuring after 25 seconds
-        handler.postDelayed(this::stopMeasuring, 30000);
+        handler.postDelayed(this::stopMeasuring, 25000);
     }
 
     private void stopMeasuring() {
@@ -101,10 +120,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         sensorManager.unregisterListener(this);
 
         // Calculate and display statistics
-        calculateAndDisplayStatistics();
+        float[] calculatedValues = calculateAndDisplayStatistics();
+
+        // Make prediction
+        makePrediction(calculatedValues);
     }
 
-    private void calculateAndDisplayStatistics() {
+    private float[] calculateAndDisplayStatistics() {
         float ro_y_max = Collections.max(ro_y_values);
         float ro_y_min = Collections.min(ro_y_values);
         float ro_y_mean = calculateMean(ro_y_values);
@@ -150,6 +172,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 la_x_min, la_mag_min, ro_mag_std, ro_mag_rmse);
 
         rotationTextView.setText(result);
+
+        return new float[] {
+                ro_y_max, ro_y_min, ro_y_mean,
+                la_z_mean,
+                ro_x_max, ro_x_min, ro_z_max,
+                ro_x_mean, la_x_mean, ro_z_min,
+                ro_z_mean, ro_mag_mean, ro_mag_min,
+                ro_mag_max, la_mag_mean, la_y_mean,
+                la_x_min, la_mag_min, ro_mag_std,
+                ro_mag_rmse
+        };
     }
 
     private float calculateMean(ArrayList<Float> values) {
@@ -176,55 +209,58 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         return (float) Math.sqrt(sum / values.size());
     }
 
+    private void makePrediction(float[] inputFeatures) {
+        float[][] output = new float[1][1];  // Assuming your model outputs a single float (prediction)
+        tflite.run(inputFeatures, output);
+        float predictedValue = output[0][0];  // Assuming output is a single float
+
+        runOnUiThread(() -> {
+            if (predictedValue > 0.5f) {
+                resultTextView.setText("User is a kid. Activation of The Smart Parental System");
+            } else {
+                resultTextView.setText("User is a parent.");
+            }
+        });
+    }
+
+    private MappedByteBuffer loadModelFile() throws IOException {
+        AssetFileDescriptor fileDescriptor = getAssets().openFd("modeltf_2.tflite");
+        FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
+        FileChannel fileChannel = inputStream.getChannel();
+        long startOffset = fileDescriptor.getStartOffset();
+        long declaredLength = fileDescriptor.getDeclaredLength();
+        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
+    }
+
     @Override
     public void onSensorChanged(SensorEvent event) {
-        if (!isMeasuring) return;
-
-        if (event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
-            float x_acceleration = event.values[0];
-            float y_acceleration = event.values[1];
-            float z_acceleration = event.values[2];
-            float mag_acceleration = (float) Math.sqrt(x_acceleration * x_acceleration + y_acceleration * y_acceleration + z_acceleration * z_acceleration);
-
-            la_x_values.add(x_acceleration);
-            la_y_values.add(y_acceleration);
-            la_z_values.add(z_acceleration);
-            la_mag_values.add(mag_acceleration);
-
-            linearAccelTextView.setText("Linear Acceleration\nx: " + x_acceleration + "\ny: " + y_acceleration + "\nz: " + z_acceleration + "\nmag: " + mag_acceleration);
-        } else if (event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
-            float x_rotation = event.values[0];
-            float y_rotation = event.values[1];
-            float z_rotation = event.values[2];
-            float mag_rotation = (float) Math.sqrt(x_rotation * x_rotation + y_rotation * y_rotation + z_rotation * z_rotation);
-
-            ro_x_values.add(x_rotation);
-            ro_y_values.add(y_rotation);
-            ro_z_values.add(z_rotation);
-            ro_mag_values.add(mag_rotation);
-
-            rotationTextView.setText("Rotation Vector\nx: " + x_rotation + "\ny: " + y_rotation + "\nz: " + z_rotation + "\nmag: " + mag_rotation);
-        }
-    }
-
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int i) {
-        // Do something if sensor accuracy changes
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
         if (isMeasuring) {
-            stopMeasuring();
+            if (event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
+                la_x_values.add(event.values[0]);
+                la_y_values.add(event.values[1]);
+                la_z_values.add(event.values[2]);
+                float la_magnitude = (float) Math.sqrt(event.values[0] * event.values[0]
+                        + event.values[1] * event.values[1]
+                        + event.values[2] * event.values[2]);
+                la_mag_values.add(la_magnitude);
+            } else if (event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
+                float[] rotationMatrix = new float[9];
+                SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
+                float[] orientations = new float[3];
+                SensorManager.getOrientation(rotationMatrix, orientations);
+                ro_x_values.add(orientations[0]);
+                ro_y_values.add(orientations[1]);
+                ro_z_values.add(orientations[2]);
+                float ro_magnitude = (float) Math.sqrt(orientations[0] * orientations[0]
+                        + orientations[1] * orientations[1]
+                        + orientations[2] * orientations[2]);
+                ro_mag_values.add(ro_magnitude);
+            }
         }
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        if (isMeasuring) {
-            startMeasuring();
-        }
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        // No action needed
     }
 }
