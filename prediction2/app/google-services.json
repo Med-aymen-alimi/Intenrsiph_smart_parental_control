@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "77250686138",
+    "project_id": "smart-parental-control",
+    "storage_bucket": "smart-parental-control.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:77250686138:android:eabe4d552baf042566a683",
+        "android_client_info": {
+          "package_name": "com.example.prediction"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "77250686138-29emmcj84g4ijtq0ntvd0vikf4vprg24.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMc_cq6n9Ck4T-G92wKh3wyL0qtlBRLZE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "77250686138-29emmcj84g4ijtq0ntvd0vikf4vprg24.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
